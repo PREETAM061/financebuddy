@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import os
+
 # ---------------------- UI & Input Section ----------------------
 st.set_page_config(page_title="FinanceBuddy", page_icon="💸")
 st.title("💸 FinanceBuddy – Your Personal Expense Advisor")
@@ -23,13 +24,25 @@ st.markdown(f"### 📊 **Weekly Budget:** ₹{weekly_budget}")
 
 # ---------------------- HuggingFace Integration ----------------------
 
-# Replace this with your actual HuggingFace token
-HF_API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1"
+# You can switch to Falcon for speed or stick with Mistral
+HF_API_URL = "https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct"
 HF_HEADERS = {"Authorization": f"Bearer {os.environ.get('HF_TOKEN')}"}
+
 def generate_ai_advice(prompt):
     try:
-        response = requests.post(HF_API_URL, headers=HF_HEADERS, json={"inputs": prompt})
-        return response.json()[0]['generated_text']
+        response = requests.post(
+            HF_API_URL,
+            headers=HF_HEADERS,
+            json={"inputs": prompt},
+            timeout=20
+        )
+        result = response.json()
+        if isinstance(result, list) and "generated_text" in result[0]:
+            return result[0]['generated_text']
+        elif "error" in result:
+            return f"❌ API Error: {result['error']}"
+        else:
+            return "⚠️ Unexpected response from AI. Try again later."
     except Exception as e:
         return f"❌ Error generating advice: {e}"
 
@@ -38,10 +51,12 @@ def generate_ai_advice(prompt):
 if st.button("🤖 Get Smart AI Advice"):
     expense_list = "\n".join([f"- {cat}: ₹{amt}" for cat, amt in expenses.items()])
     ai_prompt = f"""
-    I'm a helpful financial assistant. Here is the user's weekly spending:
+    I'm a helpful personal finance assistant.
+    The user has spent the following this week:
     {expense_list}
     Weekly Budget: ₹{weekly_budget}
-    Please give clear, friendly, financial advice in 3–5 bullet points.
+
+    Please provide 3–5 friendly, practical financial tips to help them budget better.
     """
 
     ai_reply = generate_ai_advice(ai_prompt)
