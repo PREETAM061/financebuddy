@@ -24,9 +24,10 @@ st.markdown(f"### 📊 **Weekly Budget:** ₹{weekly_budget}")
 
 # ---------------------- HuggingFace Integration ----------------------
 
-# ✅ Using Falcon-RW-1B (lightweight, fast, free)
 HF_API_URL = "https://api-inference.huggingface.co/models/tiiuae/falcon-rw-1b"
-HF_HEADERS = {"Authorization": f"Bearer {os.environ.get('HF_TOKEN')}"}
+HF_HEADERS = {
+    "Authorization": f"Bearer {os.environ.get('HF_TOKEN')}"
+}
 
 def generate_ai_advice(prompt):
     try:
