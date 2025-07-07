@@ -3,68 +3,73 @@ import requests
 import os
 
 # ---------------------- UI & Input Section ----------------------
-st.set_page_config(page_title="FinanceBuddy", page_icon="💸")
+st.set_page_config(page_title="FinanceBuddy", page_icon="💸", layout="wide")
 st.title("💸 FinanceBuddy – Your Personal Expense Advisor")
-st.caption("Smart, real-time financial advice using AI 💡")
+st.caption("Smart, real-time financial advice using AI, with offline fallback 🛡️")
 
 st.subheader("📝 Enter your weekly expenses")
-
 categories = ["Food", "Transport", "Entertainment", "Shopping", "Other"]
-expenses = {}
+expenses = {cat: st.number_input(f"{cat} expense (₹)", min_value=0, step=100, key=cat) for cat in categories}
 
-for category in categories:
-    amount = st.number_input(f"{category} expense (₹)", min_value=0, step=100, key=category)
-    expenses[category] = amount
-
-weekly_budget = st.slider("📊 Set your weekly budget (₹)", min_value=1000, max_value=20000, step=500, value=5000)
-
+weekly_budget = st.slider("📊 Set your weekly budget (₹)", 1000, 20000, 5000, 500)
 total_spent = sum(expenses.values())
+
 st.markdown(f"### 💰 **Total Spent:** ₹{total_spent}")
 st.markdown(f"### 📊 **Weekly Budget:** ₹{weekly_budget}")
 
-# ---------------------- HuggingFace Integration ----------------------
+# ---------------------- Offline Advice Engine ----------------------
+def offline_advice(expenses, budget):
+    tips = []
+    total = sum(expenses.values())
 
-HF_API_URL = "https://api-inference.huggingface.co/models/tiiuae/falcon-rw-1b"
-HF_HEADERS = {
-    "Authorization": f"Bearer {os.environ.get('HF_TOKEN')}"
-}
+    if total > budget:
+        tips.append("🚨 You're over budget! Review your spending categories.")
+    else:
+        tips.append("✅ Great! You’re within budget.")
 
-def generate_ai_advice(prompt):
+    # Category-wise suggestions
+    for cat, amt in expenses.items():
+        pct = amt / (budget or 1)
+        if pct > 0.4:
+            tips.append(f"💡 High spending on **{cat}** ({amt}₹). Try reducing this next week.")
+        elif pct < 0.1 and amt > 0:
+            tips.append(f"🌟 Low spending on **{cat}**—you might allocate more wisely.")
+
+    # General advice
+    saving = budget - total
+    if saving > budget * 0.2:
+        tips.append(f"💰 Nice savings! Consider putting ₹{saving} into an emergency fund.")
+    tips.append("🗓️ Tip: Track and review your budget every Sunday.")
+
+    return "\n".join(tips)
+
+# ---------------------- Hugging Face Integration ----------------------
+HF_API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1"
+HF_HEADERS = {"Authorization": f"Bearer {os.environ.get('HF_TOKEN')}"}
+
+def ai_advice(prompt):
     try:
-        response = requests.post(
-            HF_API_URL,
-            headers=HF_HEADERS,
-            json={"inputs": prompt},
-            timeout=40
-        )
+        resp = requests.post(HF_API_URL, headers=HF_HEADERS, json={"inputs": prompt}, timeout=30)
+        if resp.status_code != 200:
+            raise Exception(f"API {resp.status_code}")
+        data = resp.json()
+        return data[0]["generated_text"].strip()
+    except Exception:
+        # On any failure, fall back to offline advice
+        return offline_advice(expenses, weekly_budget)
 
-        if response.status_code != 200:
-            return f"❌ API Error {response.status_code}: {response.text}"
+# ---------------------- Advice Trigger ----------------------
+if st.button("🤖 Get Advice"):
+    # Build prompt
+    expense_lines = "\n".join(f"- {cat}: ₹{amt}" for cat, amt in expenses.items())
+    prompt = (
+        "You are a friendly finance assistant.\n"
+        f"User's weekly expenses:\n{expense_lines}\n"
+        f"Budget: ₹{weekly_budget}\n\n"
+        "Give 3–5 bullet tips to manage their budget."
+    )
 
-        result = response.json()
-
-        if isinstance(result, list) and "generated_text" in result[0]:
-            return result[0]["generated_text"]
-        elif isinstance(result, dict) and "error" in result:
-            return f"❌ API Error: {result['error']}"
-        else:
-            return "⚠️ Unexpected response. Please try again later."
-    except Exception as e:
-        return f"❌ Error generating advice: {e}"
-
-# ---------------------- AI Advice Trigger ----------------------
-
-if st.button("🤖 Get Smart AI Advice"):
-    expense_list = "\n".join([f"- {cat}: ₹{amt}" for cat, amt in expenses.items()])
-    ai_prompt = f"""
-    I am a friendly financial advisor.
-    Here are the user's weekly expenses:
-    {expense_list}
-    Weekly budget: ₹{weekly_budget}
-
-    Provide 3–5 personalized and actionable tips to help the user manage their budget better.
-    """
-
-    ai_reply = generate_ai_advice(ai_prompt)
-    st.markdown("### 🧠 AI-Powered Financial Advice")
-    st.success(ai_reply)
+    # Get advice (AI or fallback)
+    advice = ai_advice(prompt)
+    st.markdown("### 🧠 Financial Advice")
+    st.write(advice)
