@@ -67,4 +67,3 @@ if st.button("🤖 Get Smart AI Advice"):
     ai_reply = generate_ai_advice(ai_prompt)
     st.markdown("### 🧠 AI-Powered Financial Advice")
     st.success(ai_reply)
-
