@@ -24,7 +24,8 @@ st.markdown(f"### 📊 **Weekly Budget:** ₹{weekly_budget}")
 
 # ---------------------- HuggingFace Integration ----------------------
 
-HF_API_URL = "https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct"
+# ✅ Using Falcon-RW-1B (lightweight, fast, free)
+HF_API_URL = "https://api-inference.huggingface.co/models/tiiuae/falcon-rw-1b"
 HF_HEADERS = {"Authorization": f"Bearer {os.environ.get('HF_TOKEN')}"}
 
 def generate_ai_advice(prompt):
@@ -33,7 +34,7 @@ def generate_ai_advice(prompt):
             HF_API_URL,
             headers=HF_HEADERS,
             json={"inputs": prompt},
-            timeout=40  # Allow for large models to respond
+            timeout=40
         )
 
         if response.status_code != 200:
@@ -41,7 +42,6 @@ def generate_ai_advice(prompt):
 
         result = response.json()
 
-        # Check for correct output structure
         if isinstance(result, list) and "generated_text" in result[0]:
             return result[0]["generated_text"]
         elif isinstance(result, dict) and "error" in result:
@@ -56,12 +56,12 @@ def generate_ai_advice(prompt):
 if st.button("🤖 Get Smart AI Advice"):
     expense_list = "\n".join([f"- {cat}: ₹{amt}" for cat, amt in expenses.items()])
     ai_prompt = f"""
-    I'm a helpful personal finance assistant.
-    The user has spent the following this week:
+    I am a friendly financial advisor.
+    Here are the user's weekly expenses:
     {expense_list}
-    Weekly Budget: ₹{weekly_budget}
+    Weekly budget: ₹{weekly_budget}
 
-    Please provide 3–5 friendly, practical financial tips to help them budget better.
+    Provide 3–5 personalized and actionable tips to help the user manage their budget better.
     """
 
     ai_reply = generate_ai_advice(ai_prompt)
