@@ -24,7 +24,6 @@ st.markdown(f"### 📊 **Weekly Budget:** ₹{weekly_budget}")
 
 # ---------------------- HuggingFace Integration ----------------------
 
-# You can switch to Falcon for speed or stick with Mistral
 HF_API_URL = "https://api-inference.huggingface.co/models/tiiuae/falcon-7b-instruct"
 HF_HEADERS = {"Authorization": f"Bearer {os.environ.get('HF_TOKEN')}"}
 
@@ -34,15 +33,21 @@ def generate_ai_advice(prompt):
             HF_API_URL,
             headers=HF_HEADERS,
             json={"inputs": prompt},
-            timeout=20
+            timeout=40  # Allow for large models to respond
         )
+
+        if response.status_code != 200:
+            return f"❌ API Error {response.status_code}: {response.text}"
+
         result = response.json()
+
+        # Check for correct output structure
         if isinstance(result, list) and "generated_text" in result[0]:
-            return result[0]['generated_text']
-        elif "error" in result:
+            return result[0]["generated_text"]
+        elif isinstance(result, dict) and "error" in result:
             return f"❌ API Error: {result['error']}"
         else:
-            return "⚠️ Unexpected response from AI. Try again later."
+            return "⚠️ Unexpected response. Please try again later."
     except Exception as e:
         return f"❌ Error generating advice: {e}"
 
@@ -62,3 +67,4 @@ if st.button("🤖 Get Smart AI Advice"):
     ai_reply = generate_ai_advice(ai_prompt)
     st.markdown("### 🧠 AI-Powered Financial Advice")
     st.success(ai_reply)
+
